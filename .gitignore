@@ -4,6 +4,7 @@
 *.tfstate.*
 crash.log
 crash.*.log
+.terraform.lock.hcl
 
 # Terraform variable files
 terraform.tfvars
@@ -33,3 +34,7 @@ Thumbs.db
 
 # Sensitive files
 *.pem
+*.key
+
+# Node dependencies
+node_modules/

@@ -1,0 +1,14 @@
+{
+  "name": "devops-sample-app",
+  "version": "1.0.0",
+  "description": "DevOps Assessment Sample App with Health Check and Metrics",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.11.5",
+    "prom-client": "^15.1.2"
+  }
+}
