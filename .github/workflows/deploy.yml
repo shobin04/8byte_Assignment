@@ -131,3 +131,29 @@ jobs:
               -e DB_NAME="${{ secrets.DB_NAME }}" \
               ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:latest
           EOF
+
+  # 5. FAILURE NOTIFICATION (EMAIL ALERT)
+  notify-failure:
+    needs: [test-and-scan, build-scan-push, deploy-staging, deploy-production]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Email Alert on Pipeline Failure
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "FAILED: CI/CD Pipeline - ${{ github.repository }} (${{ github.ref_name }})"
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: GitHub Actions CI/CD <noreply@github.com>
+          body: |
+            The CI/CD pipeline failed during execution.
+
+            Repository: ${{ github.repository }}
+            Branch/Ref: ${{ github.ref_name }}
+            Triggered by: ${{ github.actor }}
+            Commit SHA: ${{ github.sha }}
+
+            View workflow logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
