@@ -15,7 +15,7 @@ const httpRequestCounter = new client.Counter({
   labelNames: ['method', 'route', 'status']
 });
 
-// Configure RDS PostgreSQL connection pool
+// Configure RDS PostgreSQL connection pool with SSL enabled
 const dbPool = new Pool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -23,6 +23,9 @@ const dbPool = new Pool({
   database: process.env.DB_NAME,
   port: process.env.DB_PORT || 5432,
   connectionTimeoutMillis: 3000,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 // Structured JSON request logging middleware
