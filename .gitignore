@@ -1,0 +1,35 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Terraform variable files
+terraform.tfvars
+*.auto.tfvars
+
+# Sensitive variable files
+*.tfvars.json
+
+# Terraform override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# CLI configuration
+.terraformrc
+terraform.rc
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Terraform plans
+*.tfplan
+*.tfplan.json
+
+# Sensitive files
+*.pem
