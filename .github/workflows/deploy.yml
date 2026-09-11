@@ -17,7 +17,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install Dependencies (If package.json exists)
         run: |
@@ -66,7 +66,14 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:${{ github.sha }} -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:latest .
+          if [ -f Dockerfile ]; then
+            docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:${{ github.sha }} -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:latest .
+          elif [ -f app/Dockerfile ]; then
+            docker build -f app/Dockerfile -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:${{ github.sha }} -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:latest app
+          else
+            echo "ERROR: No Dockerfile found in root or app/ directory!"
+            exit 1
+          fi
 
       - name: Container Vulnerability Scan (Trivy)
         uses: aquasecurity/trivy-action@master
