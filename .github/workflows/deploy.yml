@@ -19,14 +19,35 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Dependencies
-        run: npm install
+      - name: Install Dependencies (If package.json exists)
+        run: |
+          if [ -f package.json ]; then
+            npm install
+          elif [ -f app/package.json ]; then
+            cd app && npm install
+          else
+            echo "No package.json detected in root or app/, skipping npm install."
+          fi
 
-      - name: Run Unit Tests (Skipped if not configured)
-        run: npm test --if-present
+      - name: Run Unit Tests
+        run: |
+          if [ -f package.json ]; then
+            npm test --if-present
+          elif [ -f app/package.json ]; then
+            cd app && npm test --if-present
+          else
+            echo "Skipping test execution."
+          fi
 
       - name: Scan Dependencies (npm audit)
-        run: npm audit --audit-level=high || true
+        run: |
+          if [ -f package.json ]; then
+            npm audit --audit-level=high || true
+          elif [ -f app/package.json ]; then
+            cd app && npm audit --audit-level=high || true
+          else
+            echo "Skipping dependency scan."
+          fi
 
   # 2. BUILD, CONTAINER SCAN & PUSH TO DOCKER HUB
   build-scan-push:
