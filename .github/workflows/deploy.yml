@@ -19,32 +19,32 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install Dependencies (If package.json exists)
+      - name: Install Dependencies
         run: |
-          if [ -f package.json ]; then
+          if [ -f sample_app/package.json ]; then
+            cd sample_app && npm install
+          elif [ -f package.json ]; then
             npm install
-          elif [ -f app/package.json ]; then
-            cd app && npm install
           else
-            echo "No package.json detected in root or app/, skipping npm install."
+            echo "No package.json detected, skipping npm install."
           fi
 
       - name: Run Unit Tests
         run: |
-          if [ -f package.json ]; then
+          if [ -f sample_app/package.json ]; then
+            cd sample_app && npm test --if-present
+          elif [ -f package.json ]; then
             npm test --if-present
-          elif [ -f app/package.json ]; then
-            cd app && npm test --if-present
           else
             echo "Skipping test execution."
           fi
 
       - name: Scan Dependencies (npm audit)
         run: |
-          if [ -f package.json ]; then
+          if [ -f sample_app/package.json ]; then
+            cd sample_app && npm audit --audit-level=high || true
+          elif [ -f package.json ]; then
             npm audit --audit-level=high || true
-          elif [ -f app/package.json ]; then
-            cd app && npm audit --audit-level=high || true
           else
             echo "Skipping dependency scan."
           fi
@@ -66,14 +66,7 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          if [ -f Dockerfile ]; then
-            docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:${{ github.sha }} -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:latest .
-          elif [ -f app/Dockerfile ]; then
-            docker build -f app/Dockerfile -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:${{ github.sha }} -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:latest app
-          else
-            echo "ERROR: No Dockerfile found in root or app/ directory!"
-            exit 1
-          fi
+          docker build -f sample_app/Dockerfile -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:${{ github.sha }} -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:latest sample_app
 
       - name: Container Vulnerability Scan (Trivy)
         uses: aquasecurity/trivy-action@master
