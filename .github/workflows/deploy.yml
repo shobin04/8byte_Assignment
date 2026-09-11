@@ -1,55 +1,167 @@
-name: CI/CD Deployment to Private EC2
+name: CI/CD Pipeline
 
 on:
+  pull_request:
+    branches: [ main ]
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
-  deploy:
-    name: Build & Deploy Application
+  # 1. RUN TESTS & DEPENDENCY AUDIT (ON PR AND MAIN PUSH)
+  test-and-scan:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Source Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup SSH Key
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: sample_app/package-lock.json
+
+      - name: Install Dependencies
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          cd sample_app
+          npm ci
 
-      - name: Copy App Code to Private EC2 via Bastion Jump Host
+      - name: Run Unit & Integration Tests
         run: |
-          # Ensure app directory exists on private server
-          ssh -o StrictHostKeyChecking=no \
-              -o ProxyCommand="ssh -W %h:%p -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@${{ secrets.BASTION_HOST }}" \
-              -i ~/.ssh/id_rsa ubuntu@${{ secrets.PRIVATE_HOST }} "mkdir -p ~/app"
+          cd sample_app
+          npm test --if-present
 
-          # Sync sample_app folder contents to private EC2
-          scp -o StrictHostKeyChecking=no \
-              -o ProxyCommand="ssh -W %h:%p -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@${{ secrets.BASTION_HOST }}" \
-              -i ~/.ssh/id_rsa \
-              -r sample_app/* ubuntu@${{ secrets.PRIVATE_HOST }}:~/app/
+      - name: Dependency Vulnerability Scan (npm audit)
+        run: |
+          cd sample_app
+          npm audit --audit-level=high || true
 
-      - name: Build and Launch Docker Container on Private EC2
+      - name: Notify Slack on Failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_COLOR: 'danger'
+          SLACK_MESSAGE: 'Test and Dependency Scan failed on branch ${{ github.ref }}'
+
+  # 2. BUILD, CONTAINER VULNERABILITY SCAN & PUSH TO DOCKER HUB
+  build-scan-push:
+    needs: test-and-scan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.vars.outputs.image_tag }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set Image Tag
+        id: vars
+        run: echo "image_tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:${{ github.sha }} -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:latest ./sample_app
+
+      - name: Scan Container Image for Vulnerabilities (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ secrets.DOCKERHUB_USERNAME }}/devops-app:${{ github.sha }}'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push Image to Docker Hub
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:${{ github.sha }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:latest
+
+      - name: Notify Slack on Failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_COLOR: 'danger'
+          SLACK_MESSAGE: 'Docker Build or Trivy Vulnerability Scan failed.'
+
+  # 3. DEPLOY TO STAGING ENVIRONMENT (PORT 3001)
+  deploy-staging:
+    needs: build-scan-push
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Deploy Container to Staging
         run: |
           ssh -o StrictHostKeyChecking=no \
               -o ProxyCommand="ssh -W %h:%p -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@${{ secrets.BASTION_HOST }}" \
               -i ~/.ssh/id_rsa \
               ubuntu@${{ secrets.PRIVATE_HOST }} << 'EOF'
-            cd ~/app
-            docker stop devops-app || true
-            docker rm devops-app || true
-            docker build -t devops-app:latest .
+            
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:latest
+
+            docker stop devops-app-staging || true
+            docker rm devops-app-staging || true
+            
             docker run -d \
-              --name devops-app \
+              --name devops-app-staging \
+              --restart always \
+              -p 3001:3000 \
+              -e DB_HOST="${{ secrets.DB_HOST }}" \
+              -e DB_USER="${{ secrets.DB_USER }}" \
+              -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+              -e DB_NAME="${{ secrets.DB_NAME }}" \
+              ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:latest
+          EOF
+
+      - name: Notify Slack on Failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_COLOR: 'danger'
+          SLACK_MESSAGE: 'Staging deployment failed.'
+
+  # 4. MANUAL APPROVAL GATE & PRODUCTION DEPLOYMENT (PORT 3000)
+  deploy-production:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment: production # Requires manual approval under Settings > Environments
+    steps:
+      - name: Deploy Container to Production
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+              -o ProxyCommand="ssh -W %h:%p -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@${{ secrets.BASTION_HOST }}" \
+              -i ~/.ssh/id_rsa \
+              ubuntu@${{ secrets.PRIVATE_HOST }} << 'EOF'
+            
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:latest
+
+            docker stop devops-app-prod || true
+            docker rm devops-app-prod || true
+            
+            docker run -d \
+              --name devops-app-prod \
               --restart always \
               -p 3000:3000 \
               -e DB_HOST="${{ secrets.DB_HOST }}" \
               -e DB_USER="${{ secrets.DB_USER }}" \
               -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
               -e DB_NAME="${{ secrets.DB_NAME }}" \
-              devops-app:latest
+              ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:latest
           EOF
+
+      - name: Notify Slack on Failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_COLOR: 'danger'
+          SLACK_MESSAGE: 'Production deployment failed.'
