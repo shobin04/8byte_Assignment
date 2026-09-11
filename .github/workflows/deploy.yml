@@ -1,0 +1,55 @@
+name: CI/CD Deployment to Private EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Build & Deploy Application
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Copy App Code to Private EC2 via Bastion Jump Host
+        run: |
+          # Ensure app directory exists on private server
+          ssh -o StrictHostKeyChecking=no \
+              -o ProxyCommand="ssh -W %h:%p -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@${{ secrets.BASTION_HOST }}" \
+              -i ~/.ssh/id_rsa ubuntu@${{ secrets.PRIVATE_HOST }} "mkdir -p ~/app"
+
+          # Sync sample_app folder contents to private EC2
+          scp -o StrictHostKeyChecking=no \
+              -o ProxyCommand="ssh -W %h:%p -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@${{ secrets.BASTION_HOST }}" \
+              -i ~/.ssh/id_rsa \
+              -r sample_app/* ubuntu@${{ secrets.PRIVATE_HOST }}:~/app/
+
+      - name: Build and Launch Docker Container on Private EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+              -o ProxyCommand="ssh -W %h:%p -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@${{ secrets.BASTION_HOST }}" \
+              -i ~/.ssh/id_rsa \
+              ubuntu@${{ secrets.PRIVATE_HOST }} << 'EOF'
+            cd ~/app
+            docker stop devops-app || true
+            docker rm devops-app || true
+            docker build -t devops-app:latest .
+            docker run -d \
+              --name devops-app \
+              --restart always \
+              -p 3000:3000 \
+              -e DB_HOST="${{ secrets.DB_HOST }}" \
+              -e DB_USER="${{ secrets.DB_USER }}" \
+              -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+              -e DB_NAME="${{ secrets.DB_NAME }}" \
+              devops-app:latest
+          EOF
