@@ -50,10 +50,6 @@ output "db_sg_id" {
   value = module.db_security_group.db_sg_id
 }
 
-output "db_secret_arn" {
-  value = module.rds_postgres.db_secret_arn
-}
-
 output "dynamodb_table_name" {
   value = module.s3_bucket.dynamodb_table_name
 }
