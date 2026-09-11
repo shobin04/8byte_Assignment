@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  # 1. RUN TESTS & DEPENDENCY AUDIT (ON PR AND MAIN PUSH)
+  # 1. RUN TESTS & DEPENDENCY AUDIT
   test-and-scan:
     runs-on: ubuntu-latest
     steps:
@@ -17,47 +17,25 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: sample_app/package-lock.json
+          node-version: '20'
 
       - name: Install Dependencies
-        run: |
-          cd sample_app
-          npm ci
+        run: npm install
 
-      - name: Run Unit & Integration Tests
-        run: |
-          cd sample_app
-          npm test --if-present
+      - name: Run Unit Tests (Skipped if not configured)
+        run: npm test --if-present
 
-      - name: Dependency Vulnerability Scan (npm audit)
-        run: |
-          cd sample_app
-          npm audit --audit-level=high || true
+      - name: Scan Dependencies (npm audit)
+        run: npm audit --audit-level=high || true
 
-      - name: Notify Slack on Failure
-        if: failure()
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_COLOR: 'danger'
-          SLACK_MESSAGE: 'Test and Dependency Scan failed on branch ${{ github.ref }}'
-
-  # 2. BUILD, CONTAINER VULNERABILITY SCAN & PUSH TO DOCKER HUB
+  # 2. BUILD, CONTAINER SCAN & PUSH TO DOCKER HUB
   build-scan-push:
     needs: test-and-scan
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
-    outputs:
-      image_tag: ${{ steps.vars.outputs.image_tag }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Set Image Tag
-        id: vars
-        run: echo "image_tag=${{ github.sha }}" >> $GITHUB_OUTPUT
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -67,9 +45,9 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:${{ github.sha }} -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:latest ./sample_app
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:${{ github.sha }} -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:latest .
 
-      - name: Scan Container Image for Vulnerabilities (Trivy)
+      - name: Container Vulnerability Scan (Trivy)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: '${{ secrets.DOCKERHUB_USERNAME }}/devops-app:${{ github.sha }}'
@@ -77,25 +55,23 @@ jobs:
           exit-code: '0'
           severity: 'CRITICAL,HIGH'
 
-      - name: Push Image to Docker Hub
+      - name: Push to Docker Hub
         run: |
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:latest
 
-      - name: Notify Slack on Failure
-        if: failure()
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_COLOR: 'danger'
-          SLACK_MESSAGE: 'Docker Build or Trivy Vulnerability Scan failed.'
-
-  # 3. DEPLOY TO STAGING ENVIRONMENT (PORT 3001)
+  # 3. STAGING DEPLOYMENT (PORT 3001)
   deploy-staging:
     needs: build-scan-push
     runs-on: ubuntu-latest
     environment: staging
     steps:
+      - name: Configure SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
       - name: Deploy Container to Staging
         run: |
           ssh -o StrictHostKeyChecking=no \
@@ -120,20 +96,18 @@ jobs:
               ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:latest
           EOF
 
-      - name: Notify Slack on Failure
-        if: failure()
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_COLOR: 'danger'
-          SLACK_MESSAGE: 'Staging deployment failed.'
-
   # 4. MANUAL APPROVAL GATE & PRODUCTION DEPLOYMENT (PORT 3000)
   deploy-production:
     needs: deploy-staging
     runs-on: ubuntu-latest
-    environment: production # Requires manual approval under Settings > Environments
+    environment: production # Triggers manual approval gate in GitHub UI
     steps:
+      - name: Configure SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
       - name: Deploy Container to Production
         run: |
           ssh -o StrictHostKeyChecking=no \
@@ -157,11 +131,3 @@ jobs:
               -e DB_NAME="${{ secrets.DB_NAME }}" \
               ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:latest
           EOF
-
-      - name: Notify Slack on Failure
-        if: failure()
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_COLOR: 'danger'
-          SLACK_MESSAGE: 'Production deployment failed.'
