@@ -20,13 +20,11 @@ This repository contains an end-to-end, production-grade DevOps deployment for a
 
 ### Prerequisites
 * AWS CLI configured with administrator access credentials.
-* Terraform (>= 1.5.0) installed locally.
+* Terraform (>= 1.15.0) installed locally.
 * Git and Docker installed.
 
 ### Step 1: Provision Infrastructure with Terraform
 Navigate to the terraform project folder and initialize the workspace:
-
-cd terraform folder
 
 terraform init
 terraform validate
