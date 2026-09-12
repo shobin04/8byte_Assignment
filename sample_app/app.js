@@ -16,6 +16,18 @@ const httpRequestCounter = new client.Counter({
   labelNames: ['method', 'route', 'status']
 });
 
+// Custom Prometheus metric: Database Connection Status (1 = UP, 0 = DOWN)
+const dbStatusGauge = new client.Gauge({
+  name: 'db_connection_status',
+  help: 'Database Connection Status (1 for connected, 0 for disconnected)'
+});
+
+// Custom Prometheus metric: Active DB Connection Pool Total
+const dbConnectionsGauge = new client.Gauge({
+  name: 'db_active_connections',
+  help: 'Total active connections in PostgreSQL pool'
+});
+
 // Configure RDS PostgreSQL connection pool with SSL enabled
 const dbPool = new Pool({
   host: process.env.DB_HOST,
@@ -48,7 +60,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static assets if any exist
+// Serve static assets
 app.use(express.static(__dirname));
 
 // Root Route - Serves the HTML Control Panel Interface
@@ -60,6 +72,9 @@ app.get('/', (req, res) => {
 app.get('/health', async (req, res) => {
   try {
     const dbResult = await dbPool.query('SELECT NOW()');
+    dbStatusGauge.set(1);
+    dbConnectionsGauge.set(dbPool.totalCount || 1);
+
     res.status(200).json({
       status: 'healthy',
       database: 'connected',
@@ -67,6 +82,7 @@ app.get('/health', async (req, res) => {
       uptime_seconds: process.uptime()
     });
   } catch (err) {
+    dbStatusGauge.set(0);
     console.error(JSON.stringify({ event: 'db_connection_error', error: err.message }));
     res.status(500).json({
       status: 'unhealthy',
@@ -78,6 +94,15 @@ app.get('/health', async (req, res) => {
 
 // Metrics Endpoint for Prometheus / Grafana
 app.get('/metrics', async (req, res) => {
+  // Update DB gauge values on scrape
+  try {
+    await dbPool.query('SELECT 1');
+    dbStatusGauge.set(1);
+    dbConnectionsGauge.set(dbPool.totalCount || 1);
+  } catch (err) {
+    dbStatusGauge.set(0);
+  }
+
   res.setHeader('Content-Type', client.register.contentType);
   res.send(await client.register.metrics());
 });
