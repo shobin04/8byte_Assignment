@@ -8,7 +8,7 @@ on:
       - 'docs/**'
       - '**.tf'
       - '**.tfvars'
-      - 'terraform/**'
+      - 'terraform_aws/**'
       - '8bytemonitor/**'
   push:
     branches: [ main ]
@@ -17,7 +17,7 @@ on:
       - 'docs/**'
       - '**.tf'
       - '**.tfvars'
-      - 'terraform/**'
+      - 'terraform_aws/**'
       - '8bytemonitor/**'
 
 jobs:
