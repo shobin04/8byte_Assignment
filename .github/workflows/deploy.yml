@@ -9,6 +9,7 @@ on:
       - '**.tf'
       - '**.tfvars'
       - 'terraform/**'
+      - '8bytemonitor/**'
   push:
     branches: [ main ]
     paths-ignore:
@@ -17,6 +18,7 @@ on:
       - '**.tf'
       - '**.tfvars'
       - 'terraform/**'
+      - '8bytemonitor/**'
 
 jobs:
   # 1. RUN TESTS & DEPENDENCY AUDIT
