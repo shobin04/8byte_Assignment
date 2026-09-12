@@ -1,6 +1,7 @@
 const express = require('express');
 const { Pool } = require('pg');
 const client = require('prom-client');
+const path = require('path');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -47,16 +48,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// Root Route
+// Serve static assets if any exist
+app.use(express.static(__dirname));
+
+// Root Route - Serves the HTML Control Panel Interface
 app.get('/', (req, res) => {
-  res.send(`
-    <h1>🚀 DevOps Assessment Application</h1>
-    <p>Deployed on Private EC2 | Managed via Terraform & GitHub Actions</p>
-    <ul>
-      <li><a href="/health">/health</a> - Database Connection & Health Status</li>
-      <li><a href="/metrics">/metrics</a> - Prometheus Metrics Endpoint</li>
-    </ul>
-  `);
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Health Check Route
