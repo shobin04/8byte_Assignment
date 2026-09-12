@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DevOps Assessment Control Panel</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-color: #0d1117;
+      --card-bg: #161b22;
+      --border-color: #30363d;
+      --text-main: #c9d1d9;
+      --text-muted: #8b949e;
+      --accent-blue: #58a6ff;
+      --accent-green: #3fb950;
+      --accent-purple: #bc8cff;
+      --accent-yellow: #d29922;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 960px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 24px;
+      margin-bottom: 24px;
+    }
+
+    .header-title h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+
+    .header-title p {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .env-badge {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .env-staging {
+      background: rgba(210, 153, 34, 0.15);
+      color: var(--accent-yellow);
+      border: 1px solid var(--accent-yellow);
+    }
+
+    .env-prod {
+      background: rgba(63, 185, 80, 0.15);
+      color: var(--accent-green);
+      border: 1px solid var(--accent-green);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: #0d1117;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .card-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .card-value {
+      font-size: 18px;
+      font-weight: 600;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: var(--accent-green);
+      box-shadow: 0 0 10px var(--accent-green);
+    }
+
+    .tech-stack {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .tag {
+      background: rgba(88, 166, 255, 0.1);
+      color: var(--accent-blue);
+      border: 1px solid rgba(88, 166, 255, 0.3);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 16px;
+    }
+
+    .endpoints-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .endpoint-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0d1117;
+      border: 1px solid var(--border-color);
+      padding: 16px 20px;
+      border-radius: 8px;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.2s ease;
+    }
+
+    .endpoint-item:hover {
+      border-color: var(--accent-blue);
+      transform: translateY(-2px);
+    }
+
+    .endpoint-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .method {
+      background: rgba(63, 185, 80, 0.15);
+      color: var(--accent-green);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(63, 185, 80, 0.3);
+    }
+
+    .path {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      color: #ffffff;
+      font-weight: 500;
+    }
+
+    .desc {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .btn-test {
+      background: #21262d;
+      color: var(--accent-blue);
+      border: 1px solid var(--border-color);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-test:hover {
+      background: #30363d;
+      border-color: var(--accent-blue);
+    }
+
+    .response-box {
+      background: #010409;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--accent-green);
+      white-space: pre-wrap;
+      word-break: break-all;
+      display: none;
+      margin-bottom: 24px;
+    }
+
+    .footer {
+      border-top: 1px solid var(--border-color);
+      padding-top: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .grafana-link {
+      color: var(--accent-purple);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .grafana-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-title">
+        <h1>DevOps Infrastructure & Delivery Platform</h1>
+        <p>Managed via Terraform, Docker & GitHub Actions CI/CD Pipeline</p>
+      </div>
+      <div id="env-badge" class="env-badge env-staging">Environment</div>
+    </div>
+
+    <!-- Metrics Grid -->
+    <div class="grid">
+      <div class="card">
+        <div class="card-label">Application Status</div>
+        <div class="card-value">
+          <span class="status-dot"></span> Operational
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Database Management</div>
+        <div class="card-value" style="color: var(--accent-purple);">AWS Secrets Manager</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Active Host Port</div>
+        <div class="card-value" id="port-display">Port ...</div>
+      </div>
+    </div>
+
+    <!-- Tech Stack Summary -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-label">Provisioned Infrastructure & Telemetry Stack</div>
+      <div class="tech-stack">
+        <span class="tag">AWS EC2</span>
+        <span class="tag">Docker</span>
+        <span class="tag">GitHub Actions</span>
+        <span class="tag">Prometheus</span>
+        <span class="tag">Grafana</span>
+        <span class="tag">Loki</span>
+        <span class="tag">Promtail</span>
+        <span class="tag">Node Exporter</span>
+      </div>
+    </div>
+
+    <!-- Endpoints Section -->
+    <div class="section-title">System Endpoints & Diagnostics</div>
+    <div class="endpoints-list">
+      <div class="endpoint-item">
+        <div class="endpoint-left">
+          <span class="method">GET</span>
+          <span class="path">/health</span>
+          <span class="desc">— Database Connectivity & Health Check</span>
+        </div>
+        <button class="btn-test" onclick="testEndpoint('/health')">Test Endpoint</button>
+      </div>
+
+      <div class="endpoint-item">
+        <div class="endpoint-left">
+          <span class="method">GET</span>
+          <span class="path">/metrics</span>
+          <span class="desc">— Prometheus Telemetry Metric Scrapes</span>
+        </div>
+        <button class="btn-test" onclick="testEndpoint('/metrics')">Test Endpoint</button>
+      </div>
+    </div>
+
+    <!-- Live Endpoint Response Output -->
+    <div id="response-box" class="response-box"></div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <span>Octa Byte AI Assessment Deliverable</span>
+      <span>Observability UI: <a href="http://localhost:3002" target="_blank" id="grafana-url" class="grafana-link">Grafana (Port 3002) ↗</a></span>
+    </div>
+  </div>
+
+  <script>
+    // Detect environment dynamically based on host port
+    const port = window.location.port;
+    const hostname = window.location.hostname;
+    const badge = document.getElementById('env-badge');
+    const portDisplay = document.getElementById('port-display');
+    const grafanaLink = document.getElementById('grafana-url');
+
+    if (port === '3001') {
+      badge.textContent = 'STAGING (Port 3001)';
+      badge.className = 'env-badge env-staging';
+      portDisplay.textContent = 'Staging (3001)';
+    } else if (port === '3000' || port === '') {
+      badge.textContent = 'PRODUCTION (Port 3000)';
+      badge.className = 'env-badge env-prod';
+      portDisplay.textContent = 'Production (3000)';
+    } else {
+      badge.textContent = `PORT ${port}`;
+      portDisplay.textContent = `Port ${port}`;
+    }
+
+    // Update Grafana link dynamically for EC2 host IP
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      grafanaLink.href = `http://${hostname}:3002`;
+    }
+
+    // Interactive endpoint response viewer
+    async function testEndpoint(endpoint) {
+      const responseBox = document.getElementById('response-box');
+      responseBox.style.display = 'block';
+      responseBox.textContent = `Fetching ${endpoint}...`;
+
+      try {
+        const res = await fetch(endpoint);
+        const data = await res.text();
+        responseBox.textContent = `HTTP ${res.status} ${res.statusText}\n\n` + data;
+      } catch (err) {
+        responseBox.textContent = `Error connecting to ${endpoint}: ${err.message}`;
+      }
+    }
+  </script>
+</body>
+</html>
