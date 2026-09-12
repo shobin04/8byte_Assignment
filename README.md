@@ -43,6 +43,8 @@ Store the following secrets in your AWS Secrets Manager or GitHub Repository Sec
 * EC2_HOST: EC2 Public IP address.
 * EC2_SSH_KEY: Content of your EC2 .pem private SSH key.
 * DOCKER_USERNAME / DOCKER_PASSWORD: Docker Hub credentials.
+* MAIL_USER: Your Mail ID
+* MAIL_PASSWORD: Your App Password
 
 ---
 
