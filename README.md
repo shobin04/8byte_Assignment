@@ -78,7 +78,7 @@ docker compose up -d
 ## 🔐 Security Considerations
 
 * Secure Terraform State Management (S3 + DynamoDB): 
-  Infrastructure state is stored remotely in an AWS S3 bucket configured with AES-256 server-side encryption and versioning enabled to prevent state file tampering or unauthorized exposure. State locking is enforced using an AWS DynamoDB table to prevent concurrent execution conflicts, race conditions, and accidental state corruption.
+  Infrastructure state is stored remotely in an AWS S3 bucket configured with AES-256 server-side encryption and versioning enabled to prevent state file tampering or unauthorized exposure. State locking is enforced using an S3 native state locking to prevent concurrent execution conflicts, race conditions, and accidental state corruption.
 
 * VPC & Network Isolation: 
   RDS PostgreSQL is placed in private subnets. Security Groups enforce strict least-privilege rules, restricting inbound traffic on port 5432 exclusively to requests originating from the EC2 Instance Security Group ID.
