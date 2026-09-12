@@ -133,7 +133,7 @@ jobs:
   deploy-production:
     needs: deploy-staging
     runs-on: ubuntu-latest
-    environment: production # Triggers manual approval gate in GitHub UI
+    environment: production
     steps:
       - name: Configure SSH Key
         run: |
