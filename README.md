@@ -48,10 +48,10 @@ ssh -i "your-key.pem" ec2-user@<EC2_PUBLIC_IP>
 git clone [https://github.com/your-username/your-repo.git](https://github.com/your-username/your-repo.git)
 cd your-repo
 
-# Start Prometheus, Grafana, Loki, Promtail, Node Exporter
+Start Prometheus, Grafana, Loki, Promtail, Node Exporter
 docker compose up -d
 
-Key Architectural Decisions
+## Key Architectural Decisions
 Host-Gateway Docker Networking for Scraping (172.17.0.1):
 Instead of hardcoding private IP addresses inside Docker containers, Prometheus and Promtail communicate with the host application containers on ports 3000/3001 via the default Docker bridge host gateway (172.17.0.1). This prevents container IP drift across reboots.
 
@@ -78,7 +78,7 @@ Staging (port 3001) and Production (port 3000) run as isolated container instanc
 * **EC2 Access Control**: 
   EC2 instance SSH access is locked down using SSH key-pair authentication, with direct root login disabled.
 
-**Cost Optimization Measures**
+##**Cost Optimization Measures**
 Single-Instance EC2 for Monitoring Stack: Prometheus, Loki, Grafana, Node Exporter, and Promtail run lightweight Docker containers co-located on the EC2 host, eliminating the cost of managed services like AWS CloudWatch Custom Metrics or Amazon Managed Grafana.
 
 Minimal Scrape Frequency: Configured scrape_interval: 15s in Prometheus and batching in Promtail to keep CPU consumption low and avoid disk I/O bottlenecks.
