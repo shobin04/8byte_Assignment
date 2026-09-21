@@ -2,12 +2,6 @@ output "vpc_id" {
   value = module.vpc.vpc_id
 }
 
-output "private_key_pem" {
-  description = "SSH Private Key"
-  value       = module.key_pair.private_key_pem
-  sensitive   = true
-}
-
 output "public_subnet_ids" {
   value = module.vpc.public_subnet_ids
 }
